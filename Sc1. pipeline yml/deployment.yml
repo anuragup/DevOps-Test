@@ -1,0 +1,105 @@
+
+      
+
+parameters:
+      workingDirectory: ''
+      environment: ''
+      
+
+jobs:
+
+- deployment: DownloadPackage
+  dependsOn: BuildDeploymentPackage
+  condition: succeeded()
+  environment: 
+    name: ${{parameters.environment}}
+    tags: principle
+    resourceType: VirtualMachine
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              artifact: webReleasePackage
+              path: C:\Deployment_Files
+          
+- deployment: MaintenanceOn
+  dependsOn: DownloadPackage
+  condition: succeeded()
+  environment: 
+    name: ${{parameters.environment}}
+    tags: principleWeb
+    resourceType: VirtualMachine
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - download: none
+          - task: CmdLine@2
+            displayName: MaintenanceOn
+            inputs:
+              script: 1.MaintenanceOn.cmd
+              workingDirectory: '${{parameters.workingDirectory}}'
+
+                 
+
+- deployment: WebDeploy
+  dependsOn: StopServices
+  condition: succeeded()
+  environment: 
+    name: ${{parameters.environment}}
+    tags: principleWeb
+    resourceType: VirtualMachine
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - download: none
+          - task: CmdLine@2
+            displayName: InstallWeb
+            inputs:
+              script: 3.InstallWeb.cmd
+              workingDirectory: '${{parameters.workingDirectory}}'       
+         
+          
+          
+
+- deployment: APIDeploy
+  dependsOn: StopServices
+  condition: succeeded()
+  environment: 
+    name: ${{parameters.environment}}
+    tags: principleSvc
+    resourceType: VirtualMachine
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - download: none
+          - task: CmdLine@2
+            displayName: Svc
+            inputs:
+              script: 2.InstallAPI.cmd
+              workingDirectory: '${{parameters.workingDirectory}}' 
+         
+- deployment: MaintenanceOffAndPublishLogs
+  dependsOn: 
+    - StartServices
+  condition: succeeded()
+  environment: 
+    name: ${{parameters.environment}}
+    tags: principleWeb
+    resourceType: VirtualMachine
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - download: none
+          - task: CmdLine@2
+            displayName: MaintenanceOff
+            inputs:
+              script: 8.MaintenanceOff.cmd
+              workingDirectory: '${{parameters.workingDirectory}}'
+         
+

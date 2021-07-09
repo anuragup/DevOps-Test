@@ -1,0 +1,95 @@
+
+resources:
+- repo: self
+
+
+ 
+  
+name: $(Build.SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+# Build Stage to build the code and deploy to Dev
+stages:
+- stage: Build 
+  displayName: 'Build Stage & Deploy Dev'
+  jobs:
+  - job: Build_Queue  
+    steps:
+    - checkout: self
+      persistCredentials: true
+    
+    - template: Build.CI.yml  #Build.CI yml will be called toBuild Web API and Test projecs
+      parameters:
+          needTestRun: true
+          BuildConfiguration: ''
+          BuildPlatform: ''
+          BuildArguments: '/t:BuildAndPackage'
+          SettingFile: ''
+          Solution: ''
+          SolutionPath: ''
+            # This will be triggered automatically without asking for approvals 
+
+- stage: Dev  
+  dependsOn: Build
+  displayName: 'Deploy Dev'
+  
+  jobs:
+  
+  - template: BuildCD.yml  # deployment.yml has been called to download the artocfacts and deploy to Dev
+    parameters:
+      target_build: $(Build.ArtifactStagingDirectory)\Release\$(Build.BuildNumber)\
+      environment: Dev
+      workingDirectory: 
+  - template: deployment.yml
+    parameters:
+      environment: Dev
+      workingDirectory: C:\Deployment_Files\Release_$(Version)\$(Build.SourceBranchName)-$(Version)\
+      
+
+      # QA Deployement will be triggerd after approval 
+
+- stage: QA
+  dependsOn: 
+   - Build
+   - Dev
+
+  displayName: 'Deploy QA'
+ 
+  jobs:
+  
+  - template: BuildCD.yml  # deployment.yml has been called to download the artocfacts and deploy to Dev
+    parameters:
+      target_build: $(Build.ArtifactStagingDirectory)\Release\$(Build.BuildNumber)\
+      environment: QA
+      workingDirectory: 
+  - template: deployment.yml
+    parameters:
+      environment: QA
+      workingDirectory: C:\Deployment_Files\Release_$(Version)\$(Build.SourceBranchName)-$(Version)\
+      
+
+      
+# Prod Stage
+
+- stage: Prod
+  dependsOn: 
+   - Build
+   - Dev
+  
+  displayName: 'Deploy Prod'
+  
+  jobs:
+  
+  - template: BuildCD.yml
+    parameters:
+      target_build: $(Build.ArtifactStagingDirectory)\Release\$(Build.BuildNumber)\
+      environment: Prod
+      workingDirectory:
+  - template: deployment.yml
+    parameters:
+      environment: Prod
+      workingDirectory: C:\Deployment_Files\Release_$(Version)\$(Build.SourceBranchName)-$(Version)\
+     
+      
+
+
+

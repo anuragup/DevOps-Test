@@ -1,0 +1,46 @@
+
+      
+#pass the parameters from master.yml
+parameters:
+      #name of the project
+      webServices: ''  
+      svc : ''
+      target_build: ''
+      build_source: '$(Pipeline.Workspace)\drop\'
+      
+
+jobs:
+- job: BuildDeploymentPackage
+
+  steps:
+  
+  - download: current
+    artifact: drop
+
+  - task: powershell@2
+    displayName: 'Template Inputs'
+    inputs:
+      targetType: inline
+      script: |
+        Write-Host "Template Variables and Parameters"
+        Write-Host "target_build: ${{parameters.target_build}}"
+        Write-Host "build_source: ${{parameters.build_source}}"
+       
+
+  
+  - task: CopyFiles@2
+    displayName: 'Copy Auto Deployment Batchfiles Folder'
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)\Batchfiles'
+      Contents: '**'
+      TargetFolder: '${{parameters.target_build}}\System'
+      OverWrite: true
+
+  
+    #Publish Artifacts
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifacts'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'webReleasePackage'
+      publishLocation: 'Container'

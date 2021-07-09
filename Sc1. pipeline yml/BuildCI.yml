@@ -1,0 +1,120 @@
+
+
+parameters:
+          needTestRun: true
+          BuildConfiguration: ''
+          BuildPlatform: ''
+          BuildArguments: ''
+          SettingFile: ''
+          Solution: ''
+          SolutionPath: ''
+          TestAssembly: ''
+          MSIPath: ''
+          TestAdapterPath: ''
+      
+    
+steps:
+  #Install Nuget 4.7.1
+  - task: NuGetToolInstaller@1
+    displayName: 'Install NuGet 4.7.1'
+    inputs:
+      versionSpec: 4.7.1
+      checkLatest: true
+
+  #restore nuget for WEB project 
+    displayName: 'Restore Nuget for Web'    
+    inputs:
+      filename: Nuget.exe
+      arguments: 'restore $(Build.SourcesDirectory)\${{ parameters.SolutionPath }}'
+  
+  #restore nuget for API 
+  - task: CmdLine@1
+    displayName: 'Restore Nuget for API'
+    inputs:
+      filename: Nuget.exe
+      arguments: 'restore $(Build.SourcesDirectory)\${{ parameters.APISolutionPath }}'
+
+
+  
+  #Build Project for WEB
+  - task: MSBuild@1
+    displayName: 'Build solution Web'
+    inputs:
+      solution: '$(Build.SourcesDirectory)\Web\Web.sln'
+      msbuildLocationMethod: location
+      msbuildLocation: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin'
+      platform: '${{ parameters.BuildPlatform }}'
+      configuration: '$ {{ parameters.BuildConfiguration }}'
+      msbuildArguments: '${{ parameters.BuildArguments }}'
+      
+   
+    #Build Project for API
+  - task: MSBuild@1
+    displayName: 'Build solution API'
+    inputs:
+      solution: '$(Build.SourcesDirectory)\API\API.sln'
+      msbuildLocationMethod: location
+      msbuildLocation: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin'
+      platform: '${{ parameters.BuildPlatform }}'
+      configuration: '$ {{ parameters.BuildConfiguration }}'
+      msbuildArguments: '${{ parameters.BuildArguments }}'
+      
+
+  #Copy MSI for Web to Staging Directory publish
+  - task: CopyFiles@2
+    displayName: 'Copy MSI'
+    
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)\${{ parameters.Solution }}\${{ parameters.MSIPath }}'
+      Contents: '*.msi'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)\${{ parameters.Solution }}\${{ parameters.MSIPath }}'
+      CleanTargetFolder: true
+      OverWrite: true
+      
+    #Copy MSI for API to Staging Directory publish
+    
+   - task: CopyFiles@2
+    displayName: 'Copy MSI'
+    
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)\${{ parameters.APISolution }}\${{ parameters.MSIPath }}'
+      Contents: '*.msi'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)\${{ parameters.APISolution }}\${{ parameters.MSIPath }}'
+      CleanTargetFolder: true
+      OverWrite: true
+      
+  #Publish Artifacts 
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
+
+  #Test Assemblies if required
+  - task: VSTest@1
+    displayName: 'Test ${{ parameters.name }}'
+    condition: eq(${{ parameters.needTestRun }}, true)
+    inputs:
+      testAssembly: '${{ parameters.Solution }}\${{parameters.TestAssembly}}'
+      runSettingsFile: '$(Build.SourcesDirectory)\${{ parameters.SettingFile }}'
+      codeCoverageEnabled: true
+      vsTestVersion: latest
+      pathtoCustomTestAdapters: '${{ parameters.TestAdapterPath }}'
+      testRunTitle: ' Tests'
+      platform: X86
+      continueOnError: false  # fail the pipleine if Test Fails
+
+ 
+  #Publish Test Results
+  - task: PublishTestResults@1
+    displayName: 'Publish Test Results'
+    condition: eq(${{ parameters.needTestRun }}, true)
+    inputs:
+      testRunner: VSTest
+      testResultsFiles: '**\*test*.dll'
+    continueOnError: false # fail the pipleine if Test Fails
+      
+
+
+
+    
